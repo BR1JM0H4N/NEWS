@@ -20,7 +20,8 @@ data class AppSettings(
     val showRelatedCoverage: Boolean = true,
     val ttsSpeed: Float = 1.0f,
     val ttsPitch: Float = 1.0f,
-    val ttsVoiceName: String? = null
+    val ttsVoiceName: String? = null,
+    val hasCompletedOnboarding: Boolean = false
 )
 
 class SettingsRepository(private val context: Context) {
@@ -35,6 +36,7 @@ class SettingsRepository(private val context: Context) {
         val TTS_SPEED = floatPreferencesKey("tts_speed")
         val TTS_PITCH = floatPreferencesKey("tts_pitch")
         val TTS_VOICE = stringPreferencesKey("tts_voice_name")
+        val ONBOARDING_COMPLETE = booleanPreferencesKey("has_completed_onboarding")
     }
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
@@ -48,7 +50,8 @@ class SettingsRepository(private val context: Context) {
             showRelatedCoverage = prefs[Keys.SHOW_RELATED] ?: true,
             ttsSpeed = prefs[Keys.TTS_SPEED] ?: 1.0f,
             ttsPitch = prefs[Keys.TTS_PITCH] ?: 1.0f,
-            ttsVoiceName = prefs[Keys.TTS_VOICE]
+            ttsVoiceName = prefs[Keys.TTS_VOICE],
+            hasCompletedOnboarding = prefs[Keys.ONBOARDING_COMPLETE] ?: false
         )
     }
 
@@ -87,5 +90,9 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit {
             if (voiceName == null) it.remove(Keys.TTS_VOICE) else it[Keys.TTS_VOICE] = voiceName
         }
+    }
+
+    suspend fun setOnboardingComplete(completed: Boolean) {
+        context.dataStore.edit { it[Keys.ONBOARDING_COMPLETE] = completed }
     }
 }

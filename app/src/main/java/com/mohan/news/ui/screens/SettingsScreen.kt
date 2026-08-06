@@ -8,8 +8,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -49,7 +52,8 @@ fun SettingsScreen(
     onShowRelatedChange: (Boolean) -> Unit,
     onTtsSpeedChange: (Float) -> Unit,
     onTtsPitchChange: (Float) -> Unit,
-    onTtsVoiceChange: (String?) -> Unit
+    onTtsVoiceChange: (String?) -> Unit,
+    onOpenAbout: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -149,6 +153,36 @@ fun SettingsScreen(
                             onOptionSelected = { index ->
                                 if (index == 0) onTtsVoiceChange(null) else onTtsVoiceChange(availableVoiceNames[index - 1])
                             }
+                        )
+                    }
+                }
+            }
+
+            item { SectionHeader("About") }
+            item {
+                SettingsCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onOpenAbout),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.Info,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text("About this app", style = MaterialTheme.typography.bodyLarge)
+                        }
+                        Icon(
+                            Icons.Filled.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

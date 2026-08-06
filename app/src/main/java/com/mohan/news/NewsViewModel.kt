@@ -34,6 +34,9 @@ class NewsViewModel(application: Application) : AndroidViewModel(application) {
     private val _settings = MutableStateFlow(AppSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
+    private val _settingsLoaded = MutableStateFlow(false)
+    val settingsLoaded: StateFlow<Boolean> = _settingsLoaded.asStateFlow()
+
     private val _feedState = MutableStateFlow<FeedUiState>(FeedUiState.Loading)
     val feedState: StateFlow<FeedUiState> = _feedState.asStateFlow()
 
@@ -59,7 +62,8 @@ class NewsViewModel(application: Application) : AndroidViewModel(application) {
                 ttsManager.setSpeed(newSettings.ttsSpeed)
                 ttsManager.setPitch(newSettings.ttsPitch)
                 newSettings.ttsVoiceName?.let { ttsManager.setVoiceByName(it) }
-                if (categoryChanged || countryChanged || firstLoad) {
+                _settingsLoaded.value = true
+                if (newSettings.hasCompletedOnboarding && (categoryChanged || countryChanged || firstLoad)) {
                     loadFeed()
                 }
             }
@@ -102,6 +106,13 @@ class NewsViewModel(application: Application) : AndroidViewModel(application) {
     fun setTtsSpeed(speed: Float) = viewModelScope.launch { settingsRepository.setTtsSpeed(speed) }
     fun setTtsPitch(pitch: Float) = viewModelScope.launch { settingsRepository.setTtsPitch(pitch) }
     fun setTtsVoice(name: String?) = viewModelScope.launch { settingsRepository.setTtsVoice(name) }
+    fun completeOnboarding(countryCode: String, language: String, categoryId: String) {
+        viewModelScope.launch {
+            settingsRepository.setCountry(countryCode, language)
+            settingsRepository.setCategory(categoryId)
+            settingsRepository.setOnboardingComplete(true)
+        }
+    }
 
     fun availableVoiceNames(): List<String> = ttsManager.availableVoices().map { it.name }
 

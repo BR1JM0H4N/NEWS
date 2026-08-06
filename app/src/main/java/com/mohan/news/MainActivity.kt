@@ -15,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import com.mohan.news.tts.TtsState
 import com.mohan.news.ui.screens.AboutScreen
 import com.mohan.news.ui.screens.HomeScreen
+import com.mohan.news.ui.screens.OnboardingScreen
 import com.mohan.news.ui.screens.SettingsScreen
 import com.mohan.news.ui.theme.NewsAppTheme
 
@@ -28,17 +29,35 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val settings by viewModel.settings.collectAsState()
+            val settingsLoaded by viewModel.settingsLoaded.collectAsState()
 
             NewsAppTheme(
                 themeMode = settings.themeMode,
                 dynamicColor = settings.dynamicColor
             ) {
+                if (!settingsLoaded) {
+                    // Avoid flashing the wrong start screen while we read the
+                    // persisted onboarding flag from DataStore.
+                    return@NewsAppTheme
+                }
+
                 val navController = rememberNavController()
                 val feedState by viewModel.feedState.collectAsState()
                 val isRefreshing by viewModel.isRefreshing.collectAsState()
                 val ttsState by viewModel.ttsState.collectAsState()
+                val startDestination = if (settings.hasCompletedOnboarding) "home" else "onboarding"
 
-                NavHost(navController = navController, startDestination = "home") {
+                NavHost(navController = navController, startDestination = startDestination) {
+                    composable("onboarding") {
+                        OnboardingScreen(
+                            onFinish = { countryCode, language, categoryId ->
+                                viewModel.completeOnboarding(countryCode, language, categoryId)
+                                navController.navigate("home") {
+                                    popUpTo("onboarding") { inclusive = true }
+                                }
+                            }
+                        )
+                    }
                     composable("home") {
                         HomeScreen(
                             feedState = feedState,
@@ -48,7 +67,6 @@ class MainActivity : ComponentActivity() {
                             onRefresh = { viewModel.loadFeed(isPullToRefresh = true) },
                             onOpenLink = { url -> openInBrowser(url) },
                             onOpenSettings = { navController.navigate("settings") },
-                            onOpenAbout = { navController.navigate("about") },
                             onToggleReadAloud = {
                                 when (ttsState) {
                                     TtsState.IDLE -> viewModel.readHeadlinesAloud()
@@ -70,7 +88,8 @@ class MainActivity : ComponentActivity() {
                             onShowRelatedChange = viewModel::setShowRelatedCoverage,
                             onTtsSpeedChange = viewModel::setTtsSpeed,
                             onTtsPitchChange = viewModel::setTtsPitch,
-                            onTtsVoiceChange = viewModel::setTtsVoice
+                            onTtsVoiceChange = viewModel::setTtsVoice,
+                            onOpenAbout = { navController.navigate("about") }
                         )
                     }
                     composable("about") {
