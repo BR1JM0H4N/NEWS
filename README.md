@@ -1,3 +1,5 @@
+[![Android CI Fast](https://github.com/BR1JM0H4N/NEWS/actions/workflows/Android.yml/badge.svg)](https://github.com/BR1JM0H4N/NEWS/actions/workflows/Android.yml)
+
 # NEWS — Native Android App
 
 A fully native rewrite of the NEWS app (Kotlin + Jetpack Compose), replacing the previous
