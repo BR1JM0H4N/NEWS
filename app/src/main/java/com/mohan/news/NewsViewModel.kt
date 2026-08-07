@@ -57,13 +57,16 @@ class NewsViewModel(application: Application) : AndroidViewModel(application) {
             settingsRepository.settingsFlow.collectLatest { newSettings ->
                 val categoryChanged = newSettings.categoryId != _settings.value.categoryId
                 val countryChanged = newSettings.countryCode != _settings.value.countryCode
+                val onboardingJustCompleted = newSettings.hasCompletedOnboarding && !_settings.value.hasCompletedOnboarding
                 val firstLoad = _settings.value == AppSettings() && _feedState.value is FeedUiState.Loading
                 _settings.value = newSettings
                 ttsManager.setSpeed(newSettings.ttsSpeed)
                 ttsManager.setPitch(newSettings.ttsPitch)
                 newSettings.ttsVoiceName?.let { ttsManager.setVoiceByName(it) }
                 _settingsLoaded.value = true
-                if (newSettings.hasCompletedOnboarding && (categoryChanged || countryChanged || firstLoad)) {
+                if (newSettings.hasCompletedOnboarding &&
+                    (categoryChanged || countryChanged || firstLoad || onboardingJustCompleted)
+                ) {
                     loadFeed()
                 }
             }
@@ -108,9 +111,11 @@ class NewsViewModel(application: Application) : AndroidViewModel(application) {
     fun setTtsVoice(name: String?) = viewModelScope.launch { settingsRepository.setTtsVoice(name) }
     fun completeOnboarding(countryCode: String, language: String, categoryId: String) {
         viewModelScope.launch {
-            settingsRepository.setCountry(countryCode, language)
-            settingsRepository.setCategory(categoryId)
-            settingsRepository.setOnboardingComplete(true)
+            settingsRepository.completeOnboarding(countryCode, language, categoryId)
+            // The settings diff-check in the init collector can miss this change
+            // (single atomic write still races the collector's own state update),
+            // so trigger the first fetch explicitly to guarantee it happens.
+            loadFeed()
         }
     }
 

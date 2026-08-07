@@ -95,4 +95,13 @@ class SettingsRepository(private val context: Context) {
     suspend fun setOnboardingComplete(completed: Boolean) {
         context.dataStore.edit { it[Keys.ONBOARDING_COMPLETE] = completed }
     }
+
+    suspend fun completeOnboarding(countryCode: String, language: String, categoryId: String) {
+        context.dataStore.edit {
+            it[Keys.COUNTRY] = countryCode
+            it[Keys.LANGUAGE] = language
+            it[Keys.CATEGORY] = categoryId
+            it[Keys.ONBOARDING_COMPLETE] = true
+        }
+    }
 }
