@@ -39,6 +39,8 @@ read-aloud support and zero WebViews.
 
 ## 📱 How it works
 
+https://github.com/user-attachments/assets/268af6ce-bb02-4a57-93cd-eafcaded69b4
+
 1. **First launch** → a short onboarding screen asks for your **country** and preferred **category**
 2. Your choice is saved instantly and drives the Google News RSS feed URL (`hl`, `gl`, `ceid`, and topic parameters)
 3. The **Home** screen shows a live top-story card followed by the rest of your feed
