@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/app_icon.png" width="120" height="120" alt="NEWS app icon" />
+<img src="https://raw.githubusercontent.com/BR1JM0H4N/NEWS/refs/heads/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png" width="120" height="120" alt="NEWS app icon" />
 
 # 📰 NEWS
 
