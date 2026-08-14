@@ -16,6 +16,7 @@ import com.mohan.news.tts.TtsState
 import com.mohan.news.ui.screens.AboutScreen
 import com.mohan.news.ui.screens.HomeScreen
 import com.mohan.news.ui.screens.OnboardingScreen
+import com.mohan.news.ui.screens.ReaderScreen
 import com.mohan.news.ui.screens.SettingsScreen
 import com.mohan.news.ui.theme.NewsAppTheme
 
@@ -65,7 +66,10 @@ class MainActivity : ComponentActivity() {
                             showRelatedCoverage = settings.showRelatedCoverage,
                             ttsState = ttsState,
                             onRefresh = { viewModel.loadFeed(isPullToRefresh = true) },
-                            onOpenLink = { url -> openInBrowser(url) },
+                            onOpenArticle = { title, link, sourceName ->
+                                viewModel.openReader(title, link, sourceName)
+                                navController.navigate("reader")
+                            },
                             onOpenSettings = { navController.navigate("settings") },
                             onToggleReadAloud = {
                                 when (ttsState) {
@@ -74,6 +78,27 @@ class MainActivity : ComponentActivity() {
                                     TtsState.PAUSED -> viewModel.resumeTts()
                                 }
                             }
+                        )
+                    }
+                    composable("reader") {
+                        val readerState by viewModel.readerState.collectAsState()
+                        val ttsCurrentIndex by viewModel.ttsCurrentIndex.collectAsState()
+                        ReaderScreen(
+                            readerState = readerState,
+                            ttsState = ttsState,
+                            ttsCurrentIndex = ttsCurrentIndex,
+                            onBack = {
+                                viewModel.closeReader()
+                                navController.popBackStack()
+                            },
+                            onOpenOriginal = { url -> openInBrowser(url) },
+                            onRetry = {
+                                val current = readerState
+                                if (current is ReaderUiState.Error) {
+                                    viewModel.openReader("", current.originalUrl, "")
+                                }
+                            },
+                            onToggleReadAloud = { viewModel.toggleArticleReadAloud() }
                         )
                     }
                     composable("settings") {

@@ -74,6 +74,9 @@ dependencies {
     // Networking
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
+    // HTML parsing for the in-app "readability" style article extraction
+    implementation("org.jsoup:jsoup:1.17.2")
+
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.6.0")
 

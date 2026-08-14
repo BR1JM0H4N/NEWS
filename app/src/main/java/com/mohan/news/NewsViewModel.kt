@@ -7,10 +7,13 @@ import com.mohan.news.data.AppSettings
 import com.mohan.news.data.AppThemeMode
 import com.mohan.news.data.Article
 import com.mohan.news.data.NewsCatalog
+import com.mohan.news.data.ReaderArticle
 import com.mohan.news.data.SettingsRepository
+import com.mohan.news.network.ArticleReaderRepository
 import com.mohan.news.network.GoogleNewsUrlBuilder
 import com.mohan.news.network.NewsRepository
 import com.mohan.news.network.NewsResult
+import com.mohan.news.network.ReaderResult
 import com.mohan.news.tts.HeadlineTtsManager
 import com.mohan.news.tts.TtsState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +26,14 @@ sealed class FeedUiState {
     object Loading : FeedUiState()
     data class Loaded(val topStory: Article, val otherArticles: List<Article>) : FeedUiState()
     data class Error(val message: String) : FeedUiState()
+}
+
+/** State for the distraction-free in-app article reader. */
+sealed class ReaderUiState {
+    object Idle : ReaderUiState()
+    object Loading : ReaderUiState()
+    data class Loaded(val article: ReaderArticle) : ReaderUiState()
+    data class Error(val message: String, val originalUrl: String) : ReaderUiState()
 }
 
 class NewsViewModel(application: Application) : AndroidViewModel(application) {
@@ -48,6 +59,9 @@ class NewsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _ttsCurrentIndex = MutableStateFlow(-1)
     val ttsCurrentIndex: StateFlow<Int> = _ttsCurrentIndex.asStateFlow()
+
+    private val _readerState = MutableStateFlow<ReaderUiState>(ReaderUiState.Idle)
+    val readerState: StateFlow<ReaderUiState> = _readerState.asStateFlow()
 
     init {
         ttsManager.onStateChanged = { state -> _ttsState.value = state }
@@ -132,6 +146,39 @@ class NewsViewModel(application: Application) : AndroidViewModel(application) {
     fun pauseTts() = ttsManager.pause()
     fun resumeTts() = ttsManager.resume()
     fun stopTts() = ttsManager.stop()
+
+    /** Fetches and extracts a clean, ad-free reading view for the given link. */
+    fun openReader(title: String, link: String, sourceName: String) {
+        ttsManager.stop()
+        _readerState.value = ReaderUiState.Loading
+        viewModelScope.launch {
+            when (val result = ArticleReaderRepository.fetchArticle(link, title, sourceName)) {
+                is ReaderResult.Success -> _readerState.value = ReaderUiState.Loaded(result.article)
+                is ReaderResult.Error -> _readerState.value = ReaderUiState.Error(result.message, result.originalUrl)
+            }
+        }
+    }
+
+    /** Call when leaving the reader screen so any ongoing read-aloud stops. */
+    fun closeReader() {
+        ttsManager.stop()
+        _readerState.value = ReaderUiState.Idle
+    }
+
+    fun readArticleAloud() {
+        val state = _readerState.value
+        if (state is ReaderUiState.Loaded) {
+            ttsManager.readHeadlines(state.article.spokenParagraphs)
+        }
+    }
+
+    fun toggleArticleReadAloud() {
+        when (_ttsState.value) {
+            TtsState.IDLE -> readArticleAloud()
+            TtsState.SPEAKING -> pauseTts()
+            TtsState.PAUSED -> resumeTts()
+        }
+    }
 
     override fun onCleared() {
         super.onCleared()

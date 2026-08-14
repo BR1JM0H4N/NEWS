@@ -102,7 +102,7 @@ private fun LivePulseDot() {
 fun NewsArticleCard(
     article: Article,
     showRelatedCoverage: Boolean,
-    onOpenLink: (String) -> Unit,
+    onOpenArticle: (title: String, link: String, sourceName: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -116,7 +116,7 @@ fun NewsArticleCard(
     ) {
         Column(
             modifier = Modifier
-                .clickable { onOpenLink(article.link) }
+                .clickable { onOpenArticle(article.cleanTitle, article.link, article.sourceName) }
                 .padding(16.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -166,7 +166,7 @@ fun NewsArticleCard(
                             RelatedSourceRow(
                                 title = related.title,
                                 sourceName = related.sourceName,
-                                onClick = { onOpenLink(related.link) }
+                                onClick = { onOpenArticle(related.title, related.link, related.sourceName) }
                             )
                         }
                     }

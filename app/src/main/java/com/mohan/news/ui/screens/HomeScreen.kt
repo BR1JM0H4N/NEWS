@@ -42,7 +42,7 @@ fun HomeScreen(
     showRelatedCoverage: Boolean,
     ttsState: TtsState,
     onRefresh: () -> Unit,
-    onOpenLink: (String) -> Unit,
+    onOpenArticle: (title: String, link: String, sourceName: String) -> Unit,
     onOpenSettings: () -> Unit,
     onToggleReadAloud: () -> Unit
 ) {
@@ -103,14 +103,20 @@ fun HomeScreen(
                             item {
                                 LiveFeedCard(
                                     article = feedState.topStory,
-                                    onClick = { onOpenLink(feedState.topStory.link) }
+                                    onClick = {
+                                        onOpenArticle(
+                                            feedState.topStory.cleanTitle,
+                                            feedState.topStory.link,
+                                            feedState.topStory.sourceName
+                                        )
+                                    }
                                 )
                             }
                             items(feedState.otherArticles, key = { it.link }) { article: Article ->
                                 NewsArticleCard(
                                     article = article,
                                     showRelatedCoverage = showRelatedCoverage,
-                                    onOpenLink = onOpenLink
+                                    onOpenArticle = onOpenArticle
                                 )
                             }
                         }
