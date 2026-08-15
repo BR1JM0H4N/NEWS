@@ -46,11 +46,11 @@ object ArticleReaderRepository {
         try {
             var (finalUrl, html) = fetchHtml(link)
 
-            // Google News article links are sometimes an interstitial page rather
-            // than a plain HTTP redirect. Try to pull the real publisher URL out
-            // of that page and fetch it directly.
+            // Google News article links are not real HTTP redirects — Google
+            // resolves the real publisher URL client-side via a signed request.
+            // Replicate that here (falling back to simpler heuristics if it fails).
             if (isGoogleNewsHost(finalUrl)) {
-                extractRedirectTarget(html)?.let { resolved ->
+                resolveGoogleNewsUrl(finalUrl, html)?.let { resolved ->
                     if (!isGoogleNewsHost(resolved)) {
                         val second = fetchHtml(resolved)
                         finalUrl = second.first
@@ -93,6 +93,82 @@ object ArticleReaderRepository {
     }
 
     private fun isGoogleNewsHost(url: String): Boolean = url.contains("news.google.")
+
+    /**
+     * Resolves a Google News article link to the real publisher URL.
+     *
+     * Google News encodes the destination URL inside the `articles/{id}` path
+     * segment, but doesn't expose it via a plain redirect — the interstitial
+     * page it serves embeds a signed `data-n-a-sg` / `data-n-a-ts` pair that
+     * must be POSTed to Google's internal `batchexecute` endpoint to get the
+     * real URL back. This mirrors what the Google News web app itself does.
+     */
+    private fun resolveGoogleNewsUrl(articleUrl: String, html: String): String? {
+        val base64Id = extractArticleId(articleUrl)
+        if (base64Id != null) {
+            val params = extractDecodeParams(html)
+            if (params != null) {
+                decodeGoogleNewsUrl(base64Id, params)?.let { return it }
+            }
+        }
+        // Fall back to simpler heuristics (meta refresh / first outbound link)
+        // in case the signed-request flow doesn't apply to this page variant.
+        return extractRedirectTarget(html)
+    }
+
+    private fun extractArticleId(url: String): String? {
+        val path = try { URI(url).path } catch (e: Exception) { null } ?: return null
+        val segments = path.split("/").filter { it.isNotBlank() }
+        val idx = segments.indexOf("articles")
+        return if (idx >= 0 && idx < segments.size - 1) segments[idx + 1] else null
+    }
+
+    private data class GoogleNewsSignature(val signature: String, val timestamp: String)
+
+    private fun extractDecodeParams(html: String): GoogleNewsSignature? {
+        if (html.isBlank()) return null
+        val doc = Jsoup.parse(html)
+        val el = doc.selectFirst("div[data-n-a-sg]") ?: doc.selectFirst("c-wiz > div") ?: return null
+        val signature = el.attr("data-n-a-sg").takeIf { it.isNotBlank() } ?: return null
+        val timestamp = el.attr("data-n-a-ts").takeIf { it.isNotBlank() } ?: return null
+        return GoogleNewsSignature(signature, timestamp)
+    }
+
+    private fun decodeGoogleNewsUrl(base64Id: String, params: GoogleNewsSignature): String? {
+        return try {
+            val innerPayload = "[\"garturlreq\",[[\"X\",\"X\",[\"X\",\"X\"],null,null,1,1,\"US:en\",null,1," +
+                "null,null,null,null,null,0,1],\"X\",\"X\",1,[1,1,1],1,1,null,0,0,null,0]," +
+                "\"$base64Id\",${params.timestamp},\"${params.signature}\"]"
+
+            val outer = org.json.JSONArray().put(
+                org.json.JSONArray().put(
+                    org.json.JSONArray().put("Fbv4je").put(innerPayload)
+                )
+            )
+
+            val formBody = okhttp3.FormBody.Builder()
+                .add("f.req", outer.toString())
+                .build()
+
+            val request = Request.Builder()
+                .url("https://news.google.com/_/DotsSplashUi/data/batchexecute")
+                .header("User-Agent", BROWSER_UA)
+                .header("Referer", "https://news.google.com/")
+                .post(formBody)
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                val header = "[\"garturlres\","
+                if (!text.contains(header)) return null
+                val start = text.substringAfter(header)
+                val urlPart = start.substringBefore(",\"")
+                urlPart.trim('"').takeIf { it.startsWith("http") }
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     private fun extractRedirectTarget(html: String): String? {
         if (html.isBlank()) return null
