@@ -1,5 +1,6 @@
 package com.mohan.news.network
 
+import android.content.Context
 import com.mohan.news.data.ReaderArticle
 import com.mohan.news.data.ReaderBlock
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +40,8 @@ object ArticleReaderRepository {
     suspend fun fetchArticle(
         link: String,
         fallbackTitle: String,
-        fallbackSource: String
+        fallbackSource: String,
+        context: Context
     ): ReaderResult = withContext(Dispatchers.IO) {
         if (link.isBlank()) return@withContext ReaderResult.Error("No link available for this story", link)
 
@@ -48,7 +50,7 @@ object ArticleReaderRepository {
 
             // Google News article links are not real HTTP redirects — Google
             // resolves the real publisher URL client-side via a signed request.
-            // Replicate that here (falling back to simpler heuristics if it fails).
+            // Try to replicate that here; it's fast when it works.
             if (isGoogleNewsHost(finalUrl)) {
                 resolveGoogleNewsUrl(finalUrl, html)?.let { resolved ->
                     if (!isGoogleNewsHost(resolved)) {
@@ -59,21 +61,41 @@ object ArticleReaderRepository {
                 }
             }
 
-            if (html.isBlank()) {
-                return@withContext ReaderResult.Error("Couldn't load this article", finalUrl)
+            var article = if (html.isNotBlank()) {
+                extract(Jsoup.parse(html, finalUrl), finalUrl, fallbackTitle, fallbackSource)
+            } else {
+                null
             }
 
-            val doc = Jsoup.parse(html, finalUrl)
-            val article = extract(doc, finalUrl, fallbackTitle, fallbackSource)
+            // The quick HTTP path either couldn't get past Google News, or landed
+            // on a page with no real article text (common on single-page-app /
+            // heavily scripted publisher sites). Fall back to a hidden, real
+            // JS-executing WebView, exactly like a browser tab would render it.
+            val fastArticle = article
+            val needsWebView = fastArticle == null ||
+                isGoogleNewsHost(finalUrl) ||
+                fastArticle.blocks.none { it is ReaderBlock.Paragraph }
 
-            if (article.blocks.none { it is ReaderBlock.Paragraph }) {
+            if (needsWebView) {
+                val webResult = WebViewArticleFetcher.load(context, link)
+                if (webResult != null && webResult.html.isNotBlank()) {
+                    finalUrl = webResult.finalUrl
+                    val webArticle = extract(Jsoup.parse(webResult.html, finalUrl), finalUrl, fallbackTitle, fallbackSource)
+                    if (webArticle.blocks.any { it is ReaderBlock.Paragraph }) {
+                        article = webArticle
+                    }
+                }
+            }
+
+            val finalArticle = article
+            if (finalArticle == null || finalArticle.blocks.none { it is ReaderBlock.Paragraph }) {
                 return@withContext ReaderResult.Error(
                     "This publisher's page couldn't be read in-app",
                     finalUrl
                 )
             }
 
-            ReaderResult.Success(article)
+            ReaderResult.Success(finalArticle)
         } catch (e: Exception) {
             ReaderResult.Error(e.message ?: "Couldn't load this article", link)
         }

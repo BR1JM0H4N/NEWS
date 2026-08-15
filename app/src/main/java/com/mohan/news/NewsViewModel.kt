@@ -152,7 +152,7 @@ class NewsViewModel(application: Application) : AndroidViewModel(application) {
         ttsManager.stop()
         _readerState.value = ReaderUiState.Loading
         viewModelScope.launch {
-            when (val result = ArticleReaderRepository.fetchArticle(link, title, sourceName)) {
+            when (val result = ArticleReaderRepository.fetchArticle(link, title, sourceName, getApplication<Application>())) {
                 is ReaderResult.Success -> _readerState.value = ReaderUiState.Loaded(result.article)
                 is ReaderResult.Error -> _readerState.value = ReaderUiState.Error(result.message, result.originalUrl)
             }
