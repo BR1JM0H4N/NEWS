@@ -8,6 +8,7 @@ import com.mohan.news.data.AppThemeMode
 import com.mohan.news.data.Article
 import com.mohan.news.data.NewsCatalog
 import com.mohan.news.data.ReaderArticle
+import com.mohan.news.data.ReaderProgress
 import com.mohan.news.data.SettingsRepository
 import com.mohan.news.network.ArticleReaderRepository
 import com.mohan.news.network.GoogleNewsUrlBuilder
@@ -62,6 +63,9 @@ class NewsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _readerState = MutableStateFlow<ReaderUiState>(ReaderUiState.Idle)
     val readerState: StateFlow<ReaderUiState> = _readerState.asStateFlow()
+
+    private val _readerProgress = MutableStateFlow(ReaderProgress(0f, "Connecting…"))
+    val readerProgress: StateFlow<ReaderProgress> = _readerProgress.asStateFlow()
 
     init {
         ttsManager.onStateChanged = { state -> _ttsState.value = state }
@@ -151,8 +155,15 @@ class NewsViewModel(application: Application) : AndroidViewModel(application) {
     fun openReader(title: String, link: String, sourceName: String) {
         ttsManager.stop()
         _readerState.value = ReaderUiState.Loading
+        _readerProgress.value = ReaderProgress(0f, "Connecting…")
         viewModelScope.launch {
-            when (val result = ArticleReaderRepository.fetchArticle(link, title, sourceName, getApplication<Application>())) {
+            val result = ArticleReaderRepository.fetchArticle(
+                link,
+                title,
+                sourceName,
+                getApplication<Application>()
+            ) { progress -> _readerProgress.value = progress }
+            when (result) {
                 is ReaderResult.Success -> _readerState.value = ReaderUiState.Loaded(result.article)
                 is ReaderResult.Error -> _readerState.value = ReaderUiState.Error(result.message, result.originalUrl)
             }

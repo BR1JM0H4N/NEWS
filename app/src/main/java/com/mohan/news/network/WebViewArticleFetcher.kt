@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -27,7 +28,11 @@ object WebViewArticleFetcher {
     private const val UA =
         "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
 
-    suspend fun load(context: Context, url: String): WebViewLoadResult? =
+    suspend fun load(
+        context: Context,
+        url: String,
+        onProgress: (Int) -> Unit = {}
+    ): WebViewLoadResult? =
         suspendCancellableCoroutine { cont ->
             val mainHandler = Handler(Looper.getMainLooper())
 
@@ -68,6 +73,12 @@ object WebViewArticleFetcher {
                         settings.domStorageEnabled = true
                         settings.userAgentString = UA
                         settings.loadsImagesAutomatically = false
+                        webChromeClient = object : WebChromeClient() {
+                            override fun onProgressChanged(view: WebView, newProgress: Int) {
+                                super.onProgressChanged(view, newProgress)
+                                if (!resolved) onProgress(newProgress)
+                            }
+                        }
                         webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView, loadedUrl: String) {
                                 super.onPageFinished(view, loadedUrl)

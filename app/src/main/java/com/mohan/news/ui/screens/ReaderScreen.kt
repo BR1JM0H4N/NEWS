@@ -1,6 +1,8 @@
 package com.mohan.news.ui.screens
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,9 +31,9 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -53,11 +55,13 @@ import coil.compose.AsyncImage
 import com.mohan.news.ReaderUiState
 import com.mohan.news.data.ReaderArticle
 import com.mohan.news.data.ReaderBlock
+import com.mohan.news.data.ReaderProgress
 import com.mohan.news.tts.TtsState
 
 @Composable
 fun ReaderScreen(
     readerState: ReaderUiState,
+    readerProgress: ReaderProgress,
     ttsState: TtsState,
     ttsCurrentIndex: Int,
     onBack: () -> Unit,
@@ -89,7 +93,7 @@ fun ReaderScreen(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
             when (readerState) {
-                is ReaderUiState.Idle, is ReaderUiState.Loading -> ReaderLoading()
+                is ReaderUiState.Idle, is ReaderUiState.Loading -> ReaderLoading(progress = readerProgress)
                 is ReaderUiState.Error -> ReaderError(
                     message = readerState.message,
                     onOpenOriginal = { onOpenOriginal(readerState.originalUrl) },
@@ -123,18 +127,52 @@ fun ReaderScreen(
 }
 
 @Composable
-private fun ReaderLoading() {
+private fun ReaderLoading(progress: ReaderProgress) {
+    val animatedFraction by animateFloatAsState(
+        targetValue = progress.fraction.coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 350),
+        label = "readerProgress"
+    )
+
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        LinearProgressIndicator(
+            progress = { animatedFraction },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp)),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
+        )
         Spacer(Modifier.size(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = progress.label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "${(animatedFraction * 100).toInt()}%",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Spacer(Modifier.size(28.dp))
         Text(
             "Fetching a clean, ad-free version…",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
     }
 }

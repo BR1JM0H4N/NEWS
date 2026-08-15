@@ -3,6 +3,7 @@ package com.mohan.news.network
 import android.content.Context
 import com.mohan.news.data.ReaderArticle
 import com.mohan.news.data.ReaderBlock
+import com.mohan.news.data.ReaderProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -41,17 +42,21 @@ object ArticleReaderRepository {
         link: String,
         fallbackTitle: String,
         fallbackSource: String,
-        context: Context
+        context: Context,
+        onProgress: (ReaderProgress) -> Unit = {}
     ): ReaderResult = withContext(Dispatchers.IO) {
         if (link.isBlank()) return@withContext ReaderResult.Error("No link available for this story", link)
 
         try {
+            onProgress(ReaderProgress(0.08f, "Connecting…"))
             var (finalUrl, html) = fetchHtml(link)
+            onProgress(ReaderProgress(0.25f, "Connecting…"))
 
             // Google News article links are not real HTTP redirects — Google
             // resolves the real publisher URL client-side via a signed request.
             // Try to replicate that here; it's fast when it works.
             if (isGoogleNewsHost(finalUrl)) {
+                onProgress(ReaderProgress(0.35f, "Resolving article source…"))
                 resolveGoogleNewsUrl(finalUrl, html)?.let { resolved ->
                     if (!isGoogleNewsHost(resolved)) {
                         val second = fetchHtml(resolved)
@@ -59,6 +64,7 @@ object ArticleReaderRepository {
                         html = second.second
                     }
                 }
+                onProgress(ReaderProgress(0.5f, "Resolving article source…"))
             }
 
             var article = if (html.isNotBlank()) {
@@ -77,7 +83,12 @@ object ArticleReaderRepository {
                 fastArticle.blocks.none { it is ReaderBlock.Paragraph }
 
             if (needsWebView) {
-                val webResult = WebViewArticleFetcher.load(context, link)
+                onProgress(ReaderProgress(0.55f, "Loading full page…"))
+                val webResult = WebViewArticleFetcher.load(context, link) { percent ->
+                    // Map the WebView's own 0-100 load progress into our 55%-85% band.
+                    val fraction = 0.55f + (percent.coerceIn(0, 100) / 100f) * 0.30f
+                    onProgress(ReaderProgress(fraction, "Loading full page… $percent%"))
+                }
                 if (webResult != null && webResult.html.isNotBlank()) {
                     finalUrl = webResult.finalUrl
                     val webArticle = extract(Jsoup.parse(webResult.html, finalUrl), finalUrl, fallbackTitle, fallbackSource)
@@ -87,6 +98,8 @@ object ArticleReaderRepository {
                 }
             }
 
+            onProgress(ReaderProgress(0.92f, "Cleaning up formatting…"))
+
             val finalArticle = article
             if (finalArticle == null || finalArticle.blocks.none { it is ReaderBlock.Paragraph }) {
                 return@withContext ReaderResult.Error(
@@ -95,6 +108,7 @@ object ArticleReaderRepository {
                 )
             }
 
+            onProgress(ReaderProgress(1f, "Done"))
             ReaderResult.Success(finalArticle)
         } catch (e: Exception) {
             ReaderResult.Error(e.message ?: "Couldn't load this article", link)

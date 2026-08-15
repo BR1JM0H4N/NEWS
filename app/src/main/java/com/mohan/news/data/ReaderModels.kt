@@ -55,3 +55,9 @@ data class ReaderArticle(
     val speakableBlockIndices: List<Int>
         get() = blocks.indices.filter { blocks[it] !is ReaderBlock.Image }
 }
+
+/**
+ * Progress through the multi-step article fetch pipeline, surfaced to the UI
+ * as a real (not simulated) progress bar with a human-readable stage label.
+ */
+data class ReaderProgress(val fraction: Float, val label: String)

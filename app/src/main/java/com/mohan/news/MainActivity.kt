@@ -82,9 +82,11 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("reader") {
                         val readerState by viewModel.readerState.collectAsState()
+                        val readerProgress by viewModel.readerProgress.collectAsState()
                         val ttsCurrentIndex by viewModel.ttsCurrentIndex.collectAsState()
                         ReaderScreen(
                             readerState = readerState,
+                            readerProgress = readerProgress,
                             ttsState = ttsState,
                             ttsCurrentIndex = ttsCurrentIndex,
                             onBack = {
